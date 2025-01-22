@@ -1,17 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ChatModule } from './chat/chat.module';
+import { SocketService } from './socket/socket.service';
 
 @Module({
-  imports: [
-    ChatModule,
-    MongooseModule.forRoot(
-      'mongodb+srv://melsvagharshyan18:mels7878@cluster0.jedxf.mongodb.net/',
-    ),
-  ],
+  imports: [],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, SocketService],
 })
 export class AppModule {}
