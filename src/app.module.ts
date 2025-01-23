@@ -4,12 +4,12 @@ import { AppService } from './app.service';
 import { SocketService } from './socket/socket.service';
 import { ChatModule } from './chat.module';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
-    MongooseModule.forRoot(
-      'mongodb+srv://melsvagharshyan18:mels7878@cluster0.jedxf.mongodb.net/',
-    ),
+    ConfigModule.forRoot(),
+    MongooseModule.forRoot(process.env.DATABASE_URL || ''),
     ChatModule,
   ],
   controllers: [AppController],
