@@ -1,14 +1,14 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { Server, Socket } from 'socket.io';
 import { ChatMessage } from './schemas/chat-message.schema';
 
 @WebSocketGateway({
@@ -17,39 +17,78 @@ import { ChatMessage } from './schemas/chat-message.schema';
   },
 })
 export class SocketService implements OnGatewayConnection {
+  @WebSocketServer()
+  server: Server;
+
   constructor(
     @InjectModel(ChatMessage.name)
     private readonly chatMessageModel: Model<ChatMessage>,
   ) {}
 
-  // Send previous messages when a new client connects
-  async handleConnection(client: any) {
-    console.log('CONNECTED');
-
-    // Get all previous messages from MongoDB
+  async handleConnection(client: Socket) {
     const messages = await this.chatMessageModel.find().sort({ timestamp: 1 });
-
-    // Send the previous messages to the client
     client.emit('previous-messages', messages);
   }
 
   @SubscribeMessage('create-message')
-  async handleEvent(
-    @MessageBody() dto: { sender: string; message: string },
-    @ConnectedSocket() client: any,
+  async handleCreateMessage(
+    @MessageBody() dto: { message: string },
+    @ConnectedSocket() client: Socket,
   ) {
-    console.log(dto);
-
-    // Save the message to the database
-    await this.chatMessageModel.create(dto);
-
-    // Get the updated list of all messages, including the new one
+    const newMessage = await this.chatMessageModel.create(dto);
     const allMessages = await this.chatMessageModel
       .find()
       .sort({ timestamp: 1 });
 
-    // Emit the entire message list (including new message) to the client
-    client.emit('client-path', allMessages); // Send to the sender
-    client.broadcast.emit('client-path', allMessages); // Send to other clients
+    client.emit('client-path', allMessages);
+    client.broadcast.emit('client-path', allMessages);
+
+    return newMessage;
+  }
+
+  @SubscribeMessage('update-message')
+  async handleUpdateMessage(
+    @MessageBody()
+    dto: {
+      messageId: string;
+      updatedMessage: { message?: string };
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { messageId, updatedMessage } = dto;
+
+    const updatedMessageDoc = await this.chatMessageModel.findByIdAndUpdate(
+      messageId,
+      updatedMessage,
+      { new: true },
+    );
+
+    const allMessages = await this.chatMessageModel
+      .find()
+      .sort({ timestamp: 1 });
+
+    client.emit('client-path', allMessages);
+    client.broadcast.emit('client-path', allMessages);
+
+    return updatedMessageDoc;
+  }
+
+  @SubscribeMessage('delete-message')
+  async handleDeleteMessage(
+    @MessageBody() dto: { messageId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { messageId } = dto;
+
+    await this.chatMessageModel.findByIdAndDelete(messageId);
+
+    const allMessages = await this.chatMessageModel
+      .find()
+      .sort({ timestamp: 1 });
+
+    client.emit('client-path', allMessages);
+    client.broadcast.emit('client-path', allMessages);
+
+    return { deleted: true, messageId };
   }
 }
