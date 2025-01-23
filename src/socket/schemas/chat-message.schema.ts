@@ -9,8 +9,8 @@ export class ChatMessage extends Document {
   @Prop({ required: true })
   message: string;
 
-  //   @Prop({ default: Date.now })
-  //   timestamp: Date;
+  @Prop({ default: Date.now })
+  timestamp: Date;
 }
 
 export const ChatMessageSchema = SchemaFactory.createForClass(ChatMessage);
